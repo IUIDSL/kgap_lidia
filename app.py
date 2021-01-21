@@ -8,7 +8,10 @@ from flask import Flask, render_template, request, url_for
 ### Parse DB cradentials
 with open("neo.json") as f:
     neo4j_params = json.load(f)
-    neo4j_params["auth"] = (neo4j_params.pop("user"), neo4j_params.pop("password"))
+    #neo4j_params["auth"] = (neo4j_params.pop("user"), neo4j_params.pop("password"))
+    neo4j_params["auth"] = (os.environ['neo4j_user'], os.environ['neo4j_pass'])
+
+    print (neo4j_params)
 
 ###
 with open("drugcentral.json") as f:
