@@ -1,0 +1,7 @@
+{
+    "host":"unmtid-dbs.net", 
+    "port":5433,
+    "dbname":"drugcentral",
+    "user":"drugman",
+    "password":"dosage"
+}
