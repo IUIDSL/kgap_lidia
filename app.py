@@ -104,10 +104,6 @@ def KGAP_Search(cid_list, score_attribute, session):
 ### Globals
 app = Flask(__name__)
 
-### What if these sessions expire?
-dbcon = DrugCentralConnect()
-session = Neo4jConnect()
-
 ### This is the main page
 @app.route("/")
 def landing():
