@@ -11,22 +11,30 @@ var gene_table;
 var indication_list;
 
 
-$(document).ready( fetch('indications.json')
-        .then(response => response.json()).then(data => $("#indication-input").autocomplete({ source: data })) )
+$(document).ready(fetch('indications.json')
+    .then(response => response.json())
+    .then(data => $("#indication-input").autocomplete({ source: data })))
 
+
+function destroyTables() {
+    if (drug_table) {
+        drug_table.destroy()
+    }
+    if (gene_table) {
+        gene_table.destroy()
+    }
+
+}
 function processDrugs(data) {
     disease_list = data.disease_list
     drug_list = data.drug_list
 
+    destroyTables()
     // update cid_list for the next step
     cid_list = []
 
     for (drug of drug_list) {
         cid_list.push(drug.pubchem_cid)
-    }
-
-    if (drug_table) {
-        drug_table.destroy()
     }
 
     let columns = [{ data: 'pubchem_cid' }, { data: 'name' }]
@@ -37,7 +45,6 @@ function processDrugs(data) {
         lengthChange: false,
         searching: false
     })
-
 }
 
 function getDrugs() {
@@ -61,7 +68,9 @@ function getDrugs() {
 
 function processGenes(data) {
 
-    let columns = [{ data: 'geneSymbol' }, { data: 'TDL' }]
+    let columns = [{ data: 'geneSymbol', title: 'Symbol' },
+                   { data: 'TDL', title: 'TDL' }, 
+                   { data: 'kgapScore', title: 'score' }]
 
     gene_list = data;
 
@@ -69,13 +78,19 @@ function processGenes(data) {
         data: data,
         columns: columns,
         lengthChange: false,
-        searching: false
+        searching: true
     })
+
+    document.getElementById('genelist').scrollIntoView({behavior:'smooth'})
 
     getEvidencePath();
 }
 
 function getGenes() {
+
+    if (cid_list.length == 0) {
+        return
+    }
 
     console.log(cid_list)
     let formData = new FormData();

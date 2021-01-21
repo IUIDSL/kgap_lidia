@@ -70,6 +70,7 @@ def GetIndication2Drugs(dbcon, indication_query, atc_query=None):
     
     else:
         dcdrugs = pd.read_sql(sql, dbcon, params=dict(indication=indication_query))
+        
 
     logging.debug(f"rows,cols: {dcdrugs.shape[0]},{dcdrugs.shape[1]}")
     return dcdrugs

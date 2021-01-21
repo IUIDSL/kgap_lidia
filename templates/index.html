@@ -10,7 +10,6 @@
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.js"> </script>
     <script type="text/javascript" src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 
-
     <script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.js"></script>
 
     <!-- FONT
@@ -26,6 +25,7 @@
 
     <script type="text/javascript"
         src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.17.1/cytoscape.umd.js"> </script>
+
     <script type="text/javascript" src="{{ url_for('static', filename = 'lidia.js') }}"></script>
 
 
@@ -62,13 +62,16 @@
                             </select>
                         </div>
                         <input type="button" class="button button-primary" value="run" onclick="getDrugs()">
-                        <input type="button" value="clear" >
+                        <input type="button" class="button" value="clear" onclick="destroyTables()" >
                     </form>
                 </div>
             </div>
             <div class=row id="genelist" style="margin-top:25%">
                 <div class="four columns">
+                    <h3>Drug list</h3>
+                    <div>
                     <table id="drug-table"></table>
+                    </div>
                 </div>
                 <div class="six columns offset-by-two">
                     <table id="gene-table"></table>
