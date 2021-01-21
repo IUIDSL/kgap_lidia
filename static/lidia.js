@@ -11,7 +11,7 @@ var gene_table;
 var indication_list;
 
 
-$(document).ready( fetch('http://localhost:5000/indications.json')
+$(document).ready( fetch('indications.json')
         .then(response => response.json()).then(data => $("#indication-input").autocomplete({ source: data })) )
 
 function processDrugs(data) {
@@ -51,7 +51,7 @@ function getDrugs() {
     formData.append('indication', indication);
     formData.append('atc', atc);
 
-    fetch('http://localhost:5000/drugs.json', {
+    fetch('drugs.json', {
         body: formData,
         method: "post"
     })
@@ -81,7 +81,7 @@ function getGenes() {
     let formData = new FormData();
     formData.append('cid_list', cid_list);
 
-    fetch('http://localhost:5000/genes.json', {
+    fetch('genes.json', {
         body: formData,
         method: "post"
     }).then(response => response.json()).then(data => processGenes(data))
@@ -95,7 +95,7 @@ function getEvidencePath() {
     formData.append('atc', atc);
     formData.append('gene', 'SYNGR3');
 
-    fetch('http://localhost:5000/evidence_path.json', {
+    fetch('evidence_path.json', {
         body: formData,
         method: "post"
     })

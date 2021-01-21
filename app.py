@@ -107,6 +107,8 @@ app = Flask(__name__)
 ### This is the main page
 @app.route("/")
 def landing():
+    print(url_for("landing"))
+    print(request.host_url)
     return render_template("index.html", atc_values=GetATCvalues(DrugCentralConnect()))
 
 ### Returns all distinct omop.concept_name values for autocomplete
