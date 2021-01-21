@@ -1,0 +1,88 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>LIDIA</title>
+
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.23/css/jquery.dataTables.css">
+    <link rel="stylesheet" type="text/css" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.js"> </script>
+    <script type="text/javascript" src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+
+    <script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.js"></script>
+
+    <!-- FONT
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+    <!-- CSS
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <link rel="stylesheet" href="{{ url_for('static', filename = 'css/normalize.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename = 'css/skeleton.css') }}">
+
+    <!-- <script type = "text/javascript" src = "https://code.jquery.com/jquery-3.5.1.js"> </script> -->
+
+    <script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.17.1/cytoscape.umd.js"> </script>
+    <script type="text/javascript" src="{{ url_for('static', filename = 'lidia.js') }}"></script>
+
+
+</head>
+
+<body>
+    <div class="container">
+
+        <div class="container">
+            <section class="header" style="margin-top:25%; margin-bottom:25%; text-align:center">
+                <h2 class="title">LIDIA</h2>
+                <h3> LINCS+IDG Drug-target Illumination Application</h3>
+                <p> An application of Knowledge Graph Analysis Framework (KGAP). </p>
+                <a class="button button-primary"
+                    onclick="document.getElementById('introduction').scrollIntoView({behavior:'smooth'})">Start</a>
+
+            </section>
+
+            <div class="row" id="introduction" style="margin-top:25%">
+                <div class="six columns offset-by-three">
+                    <p>We start by querying drugs related to an indication.</p>
+
+                    <form action="http://localhost:5000/drugs" method="post">
+                        <div> <label for="indication-input">Indication</label>
+                            <input class="u-full-width" type="text" name="indication" id="indication-input" />
+                        </div>
+                        <div>
+                            <label for="atc-input"> ATC filter (optional) </label>
+                            <select class="u-full-width" type="text" name="atc" id="atc-input">
+                                <option value=''> </option>
+                                {% for label in atc_values : %}
+                                <option value="{{ label }}"> {{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <input type="button" class="button button-primary" value="run" onclick="getDrugs()">
+                        <input type="button" value="clear" >
+                    </form>
+                </div>
+            </div>
+            <div class=row id="genelist" style="margin-top:25%">
+                <div class="four columns">
+                    <table id="drug-table"></table>
+                </div>
+                <div class="six columns offset-by-two">
+                    <table id="gene-table"></table>
+                </div>
+            </div>
+            <div class=row style="margin-top:25%" >
+                <div class="twelve columns">
+                    <div id="cy" style="width:100%;height:100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+</body>
+
+</html>

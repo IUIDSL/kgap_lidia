@@ -1,0 +1,5 @@
+Flask==1.1.2
+psycopg2 
+neo4j 
+pandas==1.2.0
+gunicorn
