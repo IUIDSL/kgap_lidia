@@ -45,10 +45,10 @@
             </section>
 
             <div class="row" id="introduction" style="margin-top:25%">
-                <div class="six columns offset-by-three">
+                <div class="six columns">
                     <p>We start by querying drugs related to an indication.</p>
 
-                    <form>
+                    <form id="input-form">
                         <div> <label for="indication-input">Indication</label>
                             <input class="u-full-width" type="text" name="indication" id="indication-input" />
                         </div>
@@ -65,20 +65,19 @@
                         <input type="button" class="button" value="clear" onclick="destroyTables()" >
                     </form>
                 </div>
-            </div>
-            <div class=row id="genelist" style="margin-top:25%">
-                <div class="four columns">
-                    <h3>Drug list</h3>
+                <div class="six columns">
                     <div>
                     <table id="drug-table"></table>
                     </div>
                 </div>
-                <div class="six columns offset-by-two">
+            </div>
+            <div class=row id="genelist" style="margin-top:25%">
+                
+                <div class="six columns">
                     <table id="gene-table"></table>
                 </div>
-            </div>
-            <div class=row style="margin-top:25%" >
-                <div class="twelve columns">
+  
+                <div class="six columns">
                     <div id="cy" style="width:100%;height:100%"></div>
                 </div>
             </div>

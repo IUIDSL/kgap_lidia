@@ -1,14 +1,13 @@
 // global variables
 
-var indication;
-var atc;
+var indication, atc;
 var disease_list;
 var drug_list;
 var cid_list;
 var gene_list;
-var drug_table;
-var gene_table;
-var indication_list;
+var drug_table, gene_table;
+var chosen_gene;
+var cy_evidence_path;
 
 
 $(document).ready(fetch('indications.json')
@@ -37,14 +36,18 @@ function processDrugs(data) {
         cid_list.push(drug.pubchem_cid)
     }
 
-    let columns = [{ data: 'pubchem_cid' }, { data: 'name' }]
+    let columns = [{ data: 'pubchem_cid', title: 'PubChem' }, { data: 'name', title: 'name' }]
 
     drug_table = $('#drug-table').DataTable({
         data: data['drug_list'],
         columns: columns,
         lengthChange: false,
-        searching: false
+        searching: false,
+        paging: false,
+        scrollCollapse: true,
+        scrollY: "250px"
     })
+
 }
 
 function getDrugs() {
@@ -54,23 +57,21 @@ function getDrugs() {
     atc = document.getElementById("atc-input").value
 
     // fetch drug list
-    let formData = new FormData();
-    formData.append('indication', indication);
-    formData.append('atc', atc);
+    let formData = new FormData(document.getElementById("input-form"));
+    //formData.append('indication', indication);
+    //formData.append('atc', atc);
 
-    fetch('drugs.json', {
-        body: formData,
-        method: "post"
-    })
-        .then(response => response.json()).then(data => processDrugs(data)).then(data => getGenes())
+    fetch('drugs.json', { body: formData, method: "post" })
+        .then(response => response.json()).then(data => processDrugs(data))
+        .then(data => getGenes())
     //   .then(response => response.json()).then(data => (console.log(data) )
 }
 
 function processGenes(data) {
 
     let columns = [{ data: 'geneSymbol', title: 'Symbol' },
-                   { data: 'TDL', title: 'TDL' }, 
-                   { data: 'kgapScore', title: 'score' }]
+    { data: 'TDL', title: 'TDL' },
+    { data: 'kgapScore', title: 'score' }]
 
     gene_list = data;
 
@@ -78,12 +79,28 @@ function processGenes(data) {
         data: data,
         columns: columns,
         lengthChange: false,
-        searching: true
+        searching: true,
+        paging: false,
+        scrollCollapse: true,
+        scrollY: "400px",
+        order: [[2, 'desc']]
     })
 
-    document.getElementById('genelist').scrollIntoView({behavior:'smooth'})
+    $('#gene-table').on('click', 'tr', function () {
+        if ($(this).hasClass('selected')) {
+            $(this).removeClass('selected');
+            chosen_gene = undefined
+        }
+        else {
+            gene_table.$('tr.selected').removeClass('selected');
+            $(this).addClass('selected');
+            chosen_gene = gene_table.row('.selected').data().geneSymbol
+            console.log(chosen_gene);
+            getEvidencePath(chosen_gene);
+        }
+    });
 
-    getEvidencePath();
+    document.getElementById('genelist').scrollIntoView({ behavior: 'smooth' })
 }
 
 function getGenes() {
@@ -103,28 +120,44 @@ function getGenes() {
 
 }
 
-function getEvidencePath() {
+function renderEvidencePath(data) {
+
+    s = [{
+        "selector": "node[label]",
+        "style": {
+            "label": "data(label)",
+            "text-valign": "center",
+            "text-halign": "center"
+        }
+    },
+    {
+        "selector": "edge",
+        "style": { "width": "data(weight)" }
+    }
+    ]
+
+    cy_evidence_path = cytoscape({
+        container: document.getElementById('cy'),
+        layout: {
+            //name: 'concentric', concentric: function (node) { return node.data('level'); },
+            name: 'concentric', concentric: function (node) { return node.degree(); },
+            levelWidth: function (nodes) { return 1; }
+        },
+        elements: data.elements,
+        style: s
+    })
+}
+
+function getEvidencePath(gene) {
 
     let formData = new FormData();
     formData.append('indication', indication);
     formData.append('atc', atc);
-    formData.append('gene', 'SYNGR3');
+    formData.append('gene', gene);
 
-    fetch('evidence_path.json', {
-        body: formData,
-        method: "post"
-    })
+    fetch('evidence_path.json', { body: formData, method: "post" })
         .then(response => response.json())
-        .then(data => cytoscape({
-            container: document.getElementById('cy'),
-            layout: {
-                name: 'concentric', concentric: function (node) { return node.data('level'); },
-                levelWidth: function (nodes) {
-                    return 1;
-                }
-            },
-            elements: data
-        }));
+        .then(data => renderEvidencePath(data));
 }
 
 function runLidia() {

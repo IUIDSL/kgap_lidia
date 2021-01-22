@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import psycopg2, psycopg2.extras, neo4j
 from flask import Flask, render_template, request, url_for
+import networkx as nx
 
 
 ### Parse DB cradentials
@@ -70,7 +71,7 @@ def GetIndication2Drugs(dbcon, indication_query, atc_query=None):
     
     else:
         dcdrugs = pd.read_sql(sql, dbcon, params=dict(indication=indication_query))
-        
+
 
     logging.debug(f"rows,cols: {dcdrugs.shape[0]},{dcdrugs.shape[1]}")
     return dcdrugs
@@ -179,40 +180,40 @@ def getEvidencepath():
 
     print(len(cid_list))
 
-    session = Neo4jConnect()
 
-    cql = f"match p=(n:Drug)-[]-(s:Signature)-[sg]-(gd:Gene {{name:'{gene}'}}) where n.pubchem_cid in {cid_list} return p"
+    #cql = f"match p=(n:Drug)-[]-(s:Signature)-[sg]-(gd:Gene {{name:'{gene}'}}) where n.pubchem_cid in {cid_list} return p"
+    cql = f"match p=(d:Drug)-[]-(s:Signature)-[sg]-(g:Gene {{name:'{gene}'}}) where d.pubchem_cid in {cid_list} return d,g"
 
     print(cql)
+    
+    graph = nx.Graph()
 
-    g = session.run(cql).graph()
+    session = Neo4jConnect()
+    data = session.run(cql).data()
 
-    graph = []
+    for item in data :
+        g = item['g']
+        d = item['d']
 
-    for node in g.nodes:
+        gene_id=int(g.pop('id'))
+        drug_id=int(d.pop('id'))
 
-        n = dict(node)
-        n["id"] = node.id
+        if not graph.has_node(gene_id) :
+            graph.add_node(gene_id, level=2, label=g['name'], **g)
 
-        if "sig_id" in n:
-            n["level"] = 2
-        elif "pubchem_cid" in n:
-            n["level"] = 1
-        else:
-            n["level"] = 3
+        graph.add_node(drug_id, level=1, label = d['name'], **d)
 
-        graph.append(dict(data=n))
+        if not graph.has_edge(gene_id, drug_id) :
+            graph.add_edge(gene_id, drug_id, weight=1)
+        else :
+            graph[gene_id][drug_id]['weight']+=1
 
-    for edge in g.relationships:
-
-        n1 = edge.nodes[0].id
-        n2 = edge.nodes[1].id
-        e = dict(data=dict(id=f"{n1}-{n2}", source=n1, target=n2))
-        graph.append(e)
+    response = nx.readwrite.json_graph.cytoscape.cytoscape_data(graph)
 
     with open(f"tmp/{gene}_evidence_path.json", "w") as f:
-        json.dump(graph, f)
-    return json.dumps(graph)
+        json.dump(response, f)
+    
+    return json.dumps(response)
 
 
 ### Run the app (not for production)
