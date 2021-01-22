@@ -141,6 +141,7 @@ function renderEvidencePath(data) {
         layout: {
             //name: 'concentric', concentric: function (node) { return node.data('level'); },
             name: 'concentric', concentric: function (node) { return node.degree(); },
+            minNodeSpacing: 100,
             levelWidth: function (nodes) { return 1; }
         },
         elements: data.elements,
