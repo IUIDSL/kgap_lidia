@@ -210,8 +210,8 @@ def getEvidencepath():
 
     response = nx.readwrite.json_graph.cytoscape.cytoscape_data(graph)
 
-    with open(f"tmp/{gene}_evidence_path.json", "w") as f:
-        json.dump(response, f)
+  #  with open(f"tmp/{gene}_evidence_path.json", "w") as f:
+  #      json.dump(response, f)
     
     return json.dumps(response)
 
