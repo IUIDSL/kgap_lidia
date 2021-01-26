@@ -9,32 +9,33 @@ import networkx as nx
 ### Parse DB cradentials
 with open("neo.json") as f:
     neo4j_params = json.load(f)
-    #neo4j_params["auth"] = (neo4j_params.pop("user"), neo4j_params.pop("password"))
-    neo4j_params["auth"] = (os.environ['neo4j_user'], os.environ['neo4j_pass'])
-
-    print (neo4j_params)
+    # neo4j_params["auth"] = (neo4j_params.pop("user"), neo4j_params.pop("password"))
+    neo4j_params["auth"] = (os.environ["neo4j_user"], os.environ["neo4j_pass"])
 
 ###
 with open("drugcentral.json") as f:
-        drugcentral_params = json.load(f)
+    drugcentral_params = json.load(f)
 
 ###
 def Neo4jConnect(params=neo4j_params):
     """Connect to Neo4j db."""
     return neo4j.GraphDatabase.driver(**params).session()
 
+
 ###
 def DrugCentralConnect(params=drugcentral_params):
     """Connect to DrugCentral."""
-    
+
     dbcon = psycopg2.connect(**params)
     dbcon.cursor_factory = psycopg2.extras.DictCursor
     return dbcon
+
 
 ###
 def cypher2df(session, cql):
     "Run Cypher query, return dataframe."
     return pd.DataFrame(session.run(cql).data())
+
 
 ###
 def GetIndication2Drugs(dbcon, indication_query, atc_query=None):
@@ -67,20 +68,23 @@ def GetIndication2Drugs(dbcon, indication_query, atc_query=None):
 
     if atc_query:
         sql += f" AND atc.l1_name ~* %(atc)s "
-        dcdrugs = pd.read_sql(sql, dbcon, params=dict(indication=indication_query, atc=atc_query))
-    
+        dcdrugs = pd.read_sql(
+            sql, dbcon, params=dict(indication=indication_query, atc=atc_query)
+        )
+
     else:
         dcdrugs = pd.read_sql(sql, dbcon, params=dict(indication=indication_query))
-
 
     logging.debug(f"rows,cols: {dcdrugs.shape[0]},{dcdrugs.shape[1]}")
     return dcdrugs
 
+
 ### Retrieves distinct omop concept names (indication list)
 def GetConceptNames(dbcon):
-    sql = 'SELECT distinct omop.concept_name FROM omop_relationship omop'
+    sql = "SELECT distinct omop.concept_name FROM omop_relationship omop"
 
     return pd.read_sql(sql, dbcon).concept_name.to_list()
+
 
 ##  Get unique ATC values
 def GetATCvalues(dbcon):
@@ -92,6 +96,7 @@ def GetATCvalues(dbcon):
         """
 
     return pd.read_sql(sql, dbcon).l1_name.to_list()
+
 
 ### How about parameterizing cypher queries too?
 def KGAP_Search(cid_list, score_attribute, session):
@@ -106,6 +111,7 @@ def KGAP_Search(cid_list, score_attribute, session):
     cdf = cypher2df(session, cql)
     return cdf
 
+
 ### Globals
 app = Flask(__name__)
 
@@ -116,10 +122,12 @@ def landing():
     print(request.host_url)
     return render_template("index.html", atc_values=GetATCvalues(DrugCentralConnect()))
 
+
 ### Returns all distinct omop.concept_name values for autocomplete
-@app.route("/indications.json") 
-def indications() :
+@app.route("/indications.json")
+def indications():
     return json.dumps(GetConceptNames(DrugCentralConnect()))
+
 
 ### Returns drugs for a given indication and ATC filter
 @app.route("/drugs.json", methods=["POST"])
@@ -136,12 +144,13 @@ def get_drugs_by_indication():
 
     buffer = dict(
         disease_list=list(dcdrugs["omop_concept_name"].unique()),
-        drug_list=dcdrugs[["pubchem_cid", "name", "l1_name"]].drop_duplicates(
-            "pubchem_cid"
-        ).to_dict(orient='records'),
+        drug_list=dcdrugs[["pubchem_cid", "name", "l1_name"]]
+        .drop_duplicates("pubchem_cid")
+        .to_dict(orient="records"),
     )
 
     return json.dumps(buffer)
+
 
 ### Returns all genes differentially expressed for given drugs
 @app.route("/genes.json", methods=["POST"])
@@ -149,8 +158,8 @@ def get_kgap_genes():
 
     cid_list = request.form["cid_list"]
 
-    #type hack, there is probably a better way to express this.
-    cid_list = [int (x) for x in cid_list.split(',')]
+    # type hack, there is probably a better way to express this.
+    cid_list = [int(x) for x in cid_list.split(",")]
 
     print(type(cid_list), cid_list)
 
@@ -161,9 +170,9 @@ def get_kgap_genes():
 
     cdf = KGAP_Search(cid_list, score_attribute, session)
 
-    return cdf.to_json(orient='records')
+    return cdf.to_json(orient="records")
 
-    
+
 @app.route("/evidence_path.json", methods=["POST"])
 def getEvidencepath():
 
@@ -180,39 +189,38 @@ def getEvidencepath():
 
     print(len(cid_list))
 
-
-    #cql = f"match p=(n:Drug)-[]-(s:Signature)-[sg]-(gd:Gene {{name:'{gene}'}}) where n.pubchem_cid in {cid_list} return p"
+    # cql = f"match p=(n:Drug)-[]-(s:Signature)-[sg]-(gd:Gene {{name:'{gene}'}}) where n.pubchem_cid in {cid_list} return p"
     cql = f"match p=(d:Drug)-[]-(s:Signature)-[sg]-(g:Gene {{name:'{gene}'}}) where d.pubchem_cid in {cid_list} return d,g"
 
     print(cql)
-    
+
     graph = nx.Graph()
 
     session = Neo4jConnect()
     data = session.run(cql).data()
 
-    for item in data :
-        g = item['g']
-        d = item['d']
+    for item in data:
+        g = item["g"]
+        d = item["d"]
 
-        gene_id=int(g.pop('id'))
-        drug_id=int(d.pop('id'))
+        gene_id = int(g.pop("id"))
+        drug_id = int(d.pop("id"))
 
-        if not graph.has_node(gene_id) :
-            graph.add_node(gene_id, level=2, label=g['name'], **g)
+        if not graph.has_node(gene_id):
+            graph.add_node(gene_id, level=2, label=g["name"], **g)
 
-        graph.add_node(drug_id, level=1, label = d['name'], **d)
+        graph.add_node(drug_id, level=1, label=d["name"], **d)
 
-        if not graph.has_edge(gene_id, drug_id) :
+        if not graph.has_edge(gene_id, drug_id):
             graph.add_edge(gene_id, drug_id, weight=1)
-        else :
-            graph[gene_id][drug_id]['weight']+=1
+        else:
+            graph[gene_id][drug_id]["weight"] += 1
 
     response = nx.readwrite.json_graph.cytoscape.cytoscape_data(graph)
 
-  #  with open(f"tmp/{gene}_evidence_path.json", "w") as f:
-  #      json.dump(response, f)
-    
+    #  with open(f"tmp/{gene}_evidence_path.json", "w") as f:
+    #      json.dump(response, f)
+
     return json.dumps(response)
 
 
