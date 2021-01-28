@@ -1,56 +1,52 @@
 // global variables
 
+// Input variables
 var indication, atc;
-var disease_list;
-var drug_list;
-var cid_list;
-var gene_list;
-var drug_table, gene_table;
-var chosen_gene;
-var cy_evidence_path;
+// DrugCentral response
+var disease_list, drug_list, cdi_list;
+// KG response
+var gene_list, gene_table;
+// Evidence path variables
+var chosen_gene, cy_evidence_path;
 
 
 $(document).ready(fetch('indications.json')
     .then(response => response.json())
     .then(data => $("#indication-input").autocomplete({ source: data })))
 
-
-function destroyTables() {
-    if (drug_table) {
-        drug_table.destroy()
-    }
-    if (gene_table) {
-        gene_table.destroy()
-    }
-
+function about() {
+    $('#about-button').fadeOut(100, function () { $('#about-text').fadeIn('slow') })
 }
+
+function start() {
+    $('#introduction').fadeOut('slow', function () { $('#input').fadeIn('slow') });
+}
+
+function output() {
+    $('#input').fadeOut('slow', function () { $('#output').fadeIn('slow', function () { gene_table.draw() }) });
+}
+
 function processDrugs(data) {
+    // retrieved diseases
     disease_list = data.disease_list
+    // retrieved drugs
     drug_list = data.drug_list
 
-    destroyTables()
-    // update cid_list for the next step
+    // build pubchem cid list for the next query
     cid_list = []
 
     for (drug of drug_list) {
         cid_list.push(drug.pubchem_cid)
     }
 
-    let columns = [{ data: 'pubchem_cid', title: 'PubChem' }, { data: 'name', title: 'name' }]
+    $('#output-text').append('<p>' + disease_list + '</p>')
 
-    drug_table = $('#drug-table').DataTable({
-        data: data['drug_list'],
-        columns: columns,
-        lengthChange: false,
-        searching: false,
-        paging: false,
-        scrollCollapse: true,
-        scrollY: "250px"
-    })
-
+    return cid_list
 }
 
-function getDrugs() {
+function run() {
+
+    $('#run-button').addClass('loader');
 
     // update global variables
     indication = document.getElementById("indication-input").value
@@ -62,29 +58,69 @@ function getDrugs() {
     //formData.append('atc', atc);
 
     fetch('drugs.json', { body: formData, method: "post" })
-        .then(response => response.json()).then(data => processDrugs(data))
-        .then(data => getGenes())
-    //   .then(response => response.json()).then(data => (console.log(data) )
+        .then(response => response.json())
+        .then(data => processDrugs(data))
+        .then(cid_list => getGenes(cid_list))
+        .then(data => output(data))
+
+    return false
 }
 
 function processGenes(data) {
 
-    let columns = [{ data: 'geneSymbol', title: 'Symbol' },
+    let columns = [{ data: 'geneSymbol', title: 'Symbol', searchable: true },
     { data: 'TDL', title: 'TDL' },
-    { data: 'kgapScore', title: 'score' }]
+    { data: 'kgapScore', title: 'score', searchable: false }]
 
     gene_list = data;
 
     gene_table = $('#gene-table').DataTable({
         data: data,
+        dom: 'lrtip',
         columns: columns,
         lengthChange: false,
         searching: true,
         paging: false,
         scrollCollapse: true,
         scrollY: "400px",
-        order: [[2, 'desc']]
-    })
+        order: [[2, 'desc']],
+        fixedHeader: {
+            header: true,
+            footer: true
+        },
+        initComplete: function () {
+
+            var column = this.api().column(0)
+
+            $(column.header()).empty().append('<input type="text" class="u-full-width" placeholder="Symbol">')
+
+            $('input', column.header()).on('keyup change clear', function () {
+                gene_table.column(0).search(this.value).draw();
+
+            });
+
+            //TDL column
+            column = this.api().column(1)
+            var select = $('<select><option value="">TDL</option></select>')
+                .appendTo($(column.header()).empty())
+                .on('change', function () {
+                    var val = $.fn.dataTable.util.escapeRegex(
+                        $(this).val()
+                    );
+
+                    column
+                        .search(val ? '^' + val + '$' : '', true, false)
+                        .draw();
+                });
+
+            column.data().unique().sort().each(function (d, j) {
+                select.append('<option value="' + d + '">' + d + '</option>')
+            });
+            this.api().draw();
+        }
+
+    });
+
 
     $('#gene-table').on('click', 'tr', function () {
         if ($(this).hasClass('selected')) {
@@ -100,24 +136,21 @@ function processGenes(data) {
         }
     });
 
-    document.getElementById('genelist').scrollIntoView({ behavior: 'smooth' })
 }
 
-function getGenes() {
 
+function getGenes() {
     if (cid_list.length == 0) {
-        return
+        console.log('no drugs came up for the query')
+        return undefined
     }
 
-    console.log(cid_list)
     let formData = new FormData();
     formData.append('cid_list', cid_list);
 
-    fetch('genes.json', {
-        body: formData,
-        method: "post"
-    }).then(response => response.json()).then(data => processGenes(data))
-
+    return fetch('genes.json', { body: formData, method: "post" })
+        .then(response => response.json())
+        .then(data => processGenes(data))
 }
 
 function renderEvidencePath(data) {
@@ -161,7 +194,29 @@ function getEvidencePath(gene) {
         .then(data => renderEvidencePath(data));
 }
 
-function runLidia() {
-    getDrugs()
-    getGenes()
+function reset() {
+    $('#output').fadeOut('slow');
+
+    // reset global variables
+    indication = undefined;
+    atc = undefined;
+    disease_list = undefined;
+    drug_list = undefined;
+    cdi_list = undefined;
+    gene_list = undefined;
+    chosen_gene = undefined;
+
+    // cy_evidence_path;
+    $('#run-button').removeClass('loader');
+
+    try {
+        gene_table.destroy();
+    }
+    finally {
+        $('#output-text').empty();
+        $('#gene-table').empty();
+        $('#input-form')[0].reset();
+
+        $('#input').fadeIn('slow');
+    }
 }

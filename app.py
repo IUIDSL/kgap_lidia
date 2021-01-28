@@ -170,6 +170,8 @@ def get_kgap_genes():
 
     cdf = KGAP_Search(cid_list, score_attribute, session)
 
+    cdf.kgapScore=cdf.kgapScore.round(2)
+
     return cdf.to_json(orient="records")
 
 

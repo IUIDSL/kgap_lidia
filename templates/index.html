@@ -28,62 +28,137 @@
 
     <script type="text/javascript" src="{{ url_for('static', filename = 'lidia.js') }}"></script>
 
+    <style>
+        .loader {
+            border: 16px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 16px solid #3498db;
+            width: 120px;
+            height: 120px;
+            -webkit-animation: spin 2s linear infinite;
+            /* Safari */
+            animation: spin 2s linear infinite;
+        }
 
+        /* Safari */
+        @-webkit-keyframes spin {
+            0% {
+                -webkit-transform: rotate(0deg);
+            }
+
+            100% {
+                -webkit-transform: rotate(360deg);
+            }
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .help {
+            display: none;
+        }
+
+        #indication-input:hover+.help {
+            display: block;
+            color: red;
+        }
+    </style>
 </head>
 
 <body>
     <div class="container">
 
-        <div class="container">
-            <section class="header" style="margin-top:25%; margin-bottom:25%; text-align:center">
+        <div class="container" id="introduction">
+            <section class="header" style="margin-top:25%;text-align:center">
                 <h2 class="title">LIDIA</h2>
                 <h3> LINCS+IDG Drug-target Illumination Application</h3>
-                <p> An application of Knowledge Graph Analysis Framework (KGAP). </p>
-                <a class="button button-primary"
-                    onclick="document.getElementById('introduction').scrollIntoView({behavior:'smooth'})">Start</a>
-
-            </section>
-
-            <div class="row" id="introduction" style="margin-top:25%">
-                <div class="six columns">
-                    <p>We start by querying drugs related to an indication.</p>
-
-                    <form id="input-form">
-                        <div> <label for="indication-input">Indication</label>
-                            <input class="u-full-width" type="text" name="indication" id="indication-input" />
-                        </div>
-                        <div>
-                            <label for="atc-input"> ATC filter (optional) </label>
-                            <select class="u-full-width" type="text" name="atc" id="atc-input">
-                                <option value=''> </option>
-                                {% for label in atc_values : %}
-                                <option value="{{ label }}"> {{ label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <input type="button" class="button button-primary" value="run" onclick="getDrugs()">
-                        <input type="button" class="button" value="clear" onclick="destroyTables()" >
-                    </form>
+                <div id="intro-text">
+                    <p> LIDIA is an interface to the Knowledge Graph Analysis Platform (KGAP) combining LINCS and IDG
+                        for drug target illumination, a knowledge graph and toolkit for drug target discovery, developed
+                        by the Integrative Data Science Lab at Indiana University and Data2Discovery, Inc. </p>
+                    <p id="about-text" class=hidden>
+                        For additional information, see the online help,
+                        and refer to the <a href=https://cheminfov.informatics.indiana.edu/projects/kgap />KGAP Home
+                        Page</a> and our paper (under review),
+                        <a href="https://www.biorxiv.org/content/10.1101/2020.12.30.424881v2">preprint</a>:
+                        "Knowledge graph analytics platform with LINCS and IDG for Parkinson’s disease target
+                        illumination",
+                        by Jeremy J Yang, Christopher R Gessner, Joel L Duerksen, Daniel Biber, Jessica L Binder, Murat
+                        Ozturk,
+                        Brian Foote, Robin McEntire, Kyle Stirling, Ying Ding, and David J Wild.
+                    </p>
                 </div>
-                <div class="six columns">
-                    <div>
-                    <table id="drug-table"></table>
+                <p>
+                    <a class="button button-primary" id="start-button" onclick="start()">Start</a>
+                    <a class="button" id="about-button" onclick="about()">About</a>
+                </p>
+                <p>
+                    <img height="50" style="vertical-align:middle;margin:0px 50px"
+                        src="{{ url_for('static', filename = 'images/iu-sig-formal.svg') }}">
+                    <img height="50" style="vertical-align:middle;margin:0px 50px"
+                        src="{{ url_for('static', filename = 'images/D2DLogo.png') }}">
+                </p>
+        </div>
+
+        </section>
+
+        <div class="row hidden" id="input" style="margin-top:25%">
+            <div class="six columns offset-by-three">
+
+                <form id="input-form" onsubmit="run()" action="javascript:void(0)" class="helpable">
+                    <div> <label for="indication-input">Disease query</label>
+                        <input class="u-full-width" type="text" name="indication" id="indication-input" />
                     </div>
-                </div>
+                    <div class=help> some help text</div>
+                    <div>
+                        <label for="atc-input">ATC classification specification (optional) </label>
+                        <select class="u-full-width" type="text" name="atc" id="atc-input">
+                            <option value=''> </option>
+                            {% for label in atc_values : %}
+                            <option value="{{ label }}"> {{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <input type="button" id="run-button" class="button-primary" value="run" onclick="run()">
+                    <input type="button" id="help-button" class="button" value="help" onclick="">
+                </form>
             </div>
-            <div class=row id="genelist" style="margin-top:25%">
-                
-                <div class="six columns">
-                    <table id="gene-table"></table>
+        </div>
+        <div id="output" class="hidden" style="margin-top:10%">
+            <div class=row>
+                <div class="eleven columns" id="output-text">
+
+                </div>
+                <div class="one column offset-by-eleven">
+
+                    <button id="reset-button" class="button-primary" onclick="reset()">Reset</button>
+                </div>
+
+            </div>
+
+            <div class=row>
+                <div class="five columns">
+                    <table id="gene-table" style="width:100%"></table>
                 </div>
                 <div class="six columns">
-                    <div id="cy" style="width:100%;height:100%"></div>
+                    <div id="cy" class="u-full-width" style="width:100%;height:500px"></div>
                 </div>
             </div>
         </div>
     </div>
     </div>
-
+    </div>
 </body>
 
 </html>
