@@ -68,9 +68,11 @@ function run() {
 
 function processGenes(data) {
 
-    let columns = [{ data: 'geneSymbol', title: 'Symbol', searchable: true },
-    { data: 'TDL', title: 'TDL' },
-    { data: 'kgapScore', title: 'score', searchable: false }]
+    let columns = [
+        { data: 'geneSymbol', title: 'Symbol', searchable: true, orderable: false },
+        { data: 'TDL', title: 'TDL', orderable: false },
+        { data: 'kgapScore', title: 'score', searchable: false, orderable: true }
+    ]
 
     gene_list = data;
 
@@ -92,7 +94,7 @@ function processGenes(data) {
 
             var column = this.api().column(0)
 
-            $(column.header()).empty().append('<input type="text" class="u-full-width" placeholder="Symbol">')
+            $(column.header()).empty().append('<input type="text" class="u-full-width" placeholder="Gene symbol">')
 
             $('input', column.header()).on('keyup change clear', function () {
                 gene_table.column(0).search(this.value).draw();
