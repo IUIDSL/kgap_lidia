@@ -172,6 +172,10 @@ def get_kgap_genes():
 
     cdf.kgapScore=cdf.kgapScore.round(2)
 
+    cdf['sign'] = cdf.kgapScore.apply(lambda s: '+' if s>0 else '-' )
+
+    cdf['absScore'] = cdf.kgapScore.abs()
+
     return cdf.to_json(orient="records")
 
 

@@ -71,7 +71,8 @@ function processGenes(data) {
     let columns = [
         { data: 'geneSymbol', title: 'Symbol', searchable: true, orderable: false },
         { data: 'TDL', title: 'TDL', orderable: false },
-        { data: 'kgapScore', title: 'score', searchable: false, orderable: true }
+        { data: 'sign', title: 'sign', orderable: true },
+        { data: 'absScore', title: 'score', searchable: false, orderable: true }
     ]
 
     gene_list = data;
@@ -85,11 +86,7 @@ function processGenes(data) {
         paging: false,
         scrollCollapse: true,
         scrollY: "400px",
-        order: [[2, 'desc']],
-        fixedHeader: {
-            header: true,
-            footer: true
-        },
+        order: [[3, 'desc']],
         initComplete: function () {
 
             var column = this.api().column(0)
