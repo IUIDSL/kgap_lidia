@@ -21,7 +21,6 @@ def Neo4jConnect(params=neo4j_params):
     """Connect to Neo4j db."""
     return neo4j.GraphDatabase.driver(**params).session()
 
-
 ###
 def DrugCentralConnect(params=drugcentral_params):
     """Connect to DrugCentral."""
@@ -29,13 +28,6 @@ def DrugCentralConnect(params=drugcentral_params):
     dbcon = psycopg2.connect(**params)
     dbcon.cursor_factory = psycopg2.extras.DictCursor
     return dbcon
-
-
-###
-def cypher2df(session, cql):
-    "Run Cypher query, return dataframe."
-    return pd.DataFrame(session.run(cql).data())
-
 
 ###
 def GetIndication2Drugs(dbcon, indication_query, atc_query=None):
@@ -79,13 +71,6 @@ def GetIndication2Drugs(dbcon, indication_query, atc_query=None):
     return dcdrugs
 
 
-### Retrieves distinct omop concept names (indication list)
-def GetConceptNames(dbcon):
-    sql = "SELECT distinct omop.concept_name FROM omop_relationship omop"
-
-    return pd.read_sql(sql, dbcon).concept_name.to_list()
-
-
 ##  Get unique ATC values
 def GetATCvalues(dbcon):
     sql = f"""\
@@ -97,41 +82,27 @@ def GetATCvalues(dbcon):
 
     return pd.read_sql(sql, dbcon).l1_name.to_list()
 
-
-### How about parameterizing cypher queries too?
-def KGAP_Search(cid_list, score_attribute, session):
-    cql = f"""\
-    MATCH p=(d:Drug)-[]-(s:Signature)-[r]-(g:Gene), p1=(s)-[]-(c:Cell)
-    WHERE (d.pubchem_cid in {cid_list})
-    WITH g, {score_attribute} AS score
-    RETURN g.id as ncbiGeneId, g.name as geneSymbol, g.tdl as TDL, score as kgapScore
-    ORDER BY score DESC
-    """
-    logging.info(f"CQL: {cql}")
-    cdf = cypher2df(session, cql)
-    return cdf
-
-
 ### Globals
 app = Flask(__name__)
 
 ### This is the main page
 @app.route("/")
 def landing():
-    print(url_for("landing"))
-    print(request.host_url)
     return render_template("index.html", atc_values=GetATCvalues(DrugCentralConnect()))
-
 
 ### Returns all distinct omop.concept_name values for autocomplete
 @app.route("/indications.json")
 def indications():
-    return json.dumps(GetConceptNames(DrugCentralConnect()))
+    sql = "SELECT distinct omop.concept_name FROM omop_relationship omop"
 
+    dbcon = DrugCentralConnect()
+    indications = pd.read_sql(sql, dbcon).concept_name.to_list()
+
+    return json.dumps(indications)
 
 ### Returns drugs for a given indication and ATC filter
 @app.route("/drugs.json", methods=["POST"])
-def get_drugs_by_indication():
+def get_drugs():
 
     indication_query = request.form["indication"]
     atc_query = request.form.get("atc", None)
@@ -154,56 +125,56 @@ def get_drugs_by_indication():
 
 ### Returns all genes differentially expressed for given drugs
 @app.route("/genes.json", methods=["POST"])
-def get_kgap_genes():
+def get_genes():
 
-    cid_list = request.form["cid_list"]
-
-    # type hack, there is probably a better way to express this.
-    cid_list = [int(x) for x in cid_list.split(",")]
+    cid_list = json.loads(request.form["cid_list"])
 
     print(type(cid_list), cid_list)
-
-    session = Neo4jConnect()
 
     # score_attribute = "sum(s.degree)"
     score_attribute = "sum(r.zscore)/sqrt(count(r))"
 
-    cdf = KGAP_Search(cid_list, score_attribute, session)
+    CQL = f"""\
+    MATCH p=(d:Drug)-[]-(s:Signature)-[r]-(g:Gene), p1=(s)-[]-(c:Cell)
+    WHERE (d.pubchem_cid in $cid_list )
+    WITH g, {score_attribute} AS score
+    RETURN g.id as ncbiGeneId, g.name as geneSymbol, g.tdl as TDL, score as kgapScore
+    ORDER BY score DESC
+    """
+    #app.logger.info(f"CQL: {CQL}")
 
-    cdf.kgapScore=cdf.kgapScore.round(2)
+    session = Neo4jConnect()
 
-    cdf['sign'] = cdf.kgapScore.apply(lambda s: '+' if s>0 else '-' )
+    data = session.run(
+        CQL, parameters=dict(cid_list=cid_list)
+    ).data()
 
-    cdf['absScore'] = cdf.kgapScore.abs()
+    cdf = pd.DataFrame(data)
+
+    cdf.kgapScore = cdf.kgapScore.round(2)
+
+    cdf["sign"] = cdf.kgapScore.apply(lambda s: "+" if s > 0 else "-")
+
+    cdf["absScore"] = cdf.kgapScore.abs()
 
     return cdf.to_json(orient="records")
 
 
 @app.route("/evidence_path.json", methods=["POST"])
-def getEvidencepath():
+def get_evidence_path():
 
-    indication_query = request.form["indication"]
-    atc_query = request.form["atc"]
     gene = request.form["gene"]
 
-    print("getting evidence path for:", indication_query, atc_query, gene)
+    cid_list = json.loads(request.form["cid_list"])
 
-    # Building seed drug list again
-    dbcon = DrugCentralConnect()
-    dcdrugs = GetIndication2Drugs(dbcon, indication_query, atc_query)
-    cid_list = list(set(dcdrugs.pubchem_cid.array.astype("int")))
+    print(len(cid_list), cid_list)
 
-    print(len(cid_list))
+    CQL = f"MATCH p=(d:Drug)-[]-(s:Signature)-[sg]-(g:Gene {{name: $gene_name }}) WHERE d.pubchem_cid in $cid_list RETURN d,g"
 
-    # cql = f"match p=(n:Drug)-[]-(s:Signature)-[sg]-(gd:Gene {{name:'{gene}'}}) where n.pubchem_cid in {cid_list} return p"
-    cql = f"match p=(d:Drug)-[]-(s:Signature)-[sg]-(g:Gene {{name:'{gene}'}}) where d.pubchem_cid in {cid_list} return d,g"
-
-    print(cql)
-
-    graph = nx.Graph()
+    graph = nx.MultiGraph()
 
     session = Neo4jConnect()
-    data = session.run(cql).data()
+    data = session.run(CQL, parameters=dict(gene_name=gene, cid_list=cid_list)).data()
 
     for item in data:
         g = item["g"]
@@ -217,15 +188,17 @@ def getEvidencepath():
 
         graph.add_node(drug_id, level=1, label=d["name"], **d)
 
-        if not graph.has_edge(gene_id, drug_id):
-            graph.add_edge(gene_id, drug_id, weight=1)
-        else:
-            graph[gene_id][drug_id]["weight"] += 1
+        # if not graph.has_edge(gene_id, drug_id):
+        #     graph.add_edge(gene_id, drug_id, weight=1)
+        # else:
+        #     graph[gene_id][drug_id]["weight"] += 1
+
+        graph.add_edge(gene_id, drug_id)
 
     response = nx.readwrite.json_graph.cytoscape.cytoscape_data(graph)
 
-    #  with open(f"tmp/{gene}_evidence_path.json", "w") as f:
-    #      json.dump(response, f)
+    #with open(f"tmp/{gene}_evidence_path.json", "w") as f:
+    #    json.dump(response, f)
 
     return json.dumps(response)
 
