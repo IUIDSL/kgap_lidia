@@ -1,4 +1,4 @@
-import sys, os, re, logging, argparse, json
+import os, re, json
 import pandas as pd
 import numpy as np
 import psycopg2, psycopg2.extras, neo4j
@@ -26,37 +26,40 @@ def DrugCentralConnect(params=drugcentral_params):
     dbcon.cursor_factory = psycopg2.extras.DictCursor
     return dbcon
 
-##  Get unique ATC values
-def GetATCvalues(dbcon):
+### Flask stuff
+app = Flask(__name__)
+
+### This is the main page
+@app.route("/")
+def landing():
+
+    # Fill in ATC values in the template
+    # This should probably be consolidated with get_indications()
+
     SQL = f"""\
         SELECT DISTINCT
             atc.l1_name
         FROM
             atc
         """
+    dbcon=DrugCentralConnect()
+    atc_values = pd.read_sql(SQL, dbcon).l1_name.to_list()
+    dbcon.close()
 
-    return pd.read_sql(SQL, dbcon).l1_name.to_list()
-
-
-### Globals
-app = Flask(__name__)
-
-### This is the main page
-@app.route("/")
-def landing():
-    return render_template("index.html", atc_values=GetATCvalues(DrugCentralConnect()))
+    return render_template("index.html", atc_values=atc_values)
 
 
 ### Returns all distinct omop.concept_name values for autocomplete
+### This would probably be cached in real world
 @app.route("/indications.json")
-def indications():
+def get_indications():
     SQL = "SELECT distinct omop.concept_name FROM omop_relationship omop"
 
     dbcon = DrugCentralConnect()
     indications = pd.read_sql(SQL, dbcon).concept_name.to_list()
+    dbcon.close()
 
     return json.dumps(indications)
-
 
 ### Returns drugs for a given indication and ATC filter
 @app.route("/drugs.json", methods=["POST"])
@@ -104,6 +107,8 @@ def get_drugs():
     else:
         dcdrugs = pd.read_sql(SQL, dbcon, params=dict(indication=indication_query))
 
+    dbcon.close()
+    
     app.logger.debug(f"rows,cols: {dcdrugs.shape[0]},{dcdrugs.shape[1]}")
 
     buffer = dict(
@@ -140,6 +145,8 @@ def get_genes():
 
     data = session.run(CQL, parameters=dict(cid_list=cid_list)).data()
 
+    session.close()
+
     cdf = pd.DataFrame(data)
 
     cdf.kgapScore = cdf.kgapScore.round(2)
@@ -166,6 +173,7 @@ def get_evidence_path():
 
     session = Neo4jConnect()
     data = session.run(CQL, parameters=dict(gene_name=gene, cid_list=cid_list)).data()
+    session.close()
 
     for item in data:
         g = item["g"]
