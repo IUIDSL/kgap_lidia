@@ -23,7 +23,7 @@ function start() {
 }
 
 function output() {
-    $('#input').fadeOut('slow', function () { $('#output').fadeIn('slow', function () { gene_table.draw() }) });
+    $('#input').fadeOut('slow', function () { $('#output').fadeIn('slow') });
 }
 
 function processDrugs(data) {
@@ -36,7 +36,7 @@ function processDrugs(data) {
     cid_list = []
 
     for (drug of drug_list) {
-        cid_list.push(drug.pubchem_cid)
+        cid_list.push(drug.id)
     }
 
     $('#output-text').append('<p>' + disease_list + '</p>')
@@ -131,7 +131,7 @@ function processGenes(data) {
             $(this).addClass('selected');
             chosen_gene = gene_table.row('.selected').data().geneSymbol
             console.log(chosen_gene);
-            getEvidencePath(chosen_gene);
+            renderEvidenceEdges(chosen_gene);
         }
     });
 
@@ -141,23 +141,28 @@ function processGenes(data) {
 function getGenes() {
     if (cid_list.length == 0) {
         console.log('no drugs came up for the query')
-        return undefined
+        return undefined 
     }
 
     let formData = new FormData();
     formData.append('cid_list', JSON.stringify(cid_list.map(Number)));
 
-    return fetch('genes.json', { body: formData, method: "post" })
+
+    fetch('genes.json', { body: formData, method: "post" })
         .then(response => response.json())
         .then(data => processGenes(data))
+        .then(data=> renderEvidenceBackbone(50,150));
 }
 
-function renderEvidencePath(data) {
+function renderEvidenceBackbone(min_diameter, max_diameter) {
 
     s = [{
-        "selector": "node[label]",
+        "selector": "node",
         "style": {
-            "label": "data(label)",
+            "label": "data(name)",
+            "font-size": 12,
+            "width": "data(diameter)",
+            "height": "data(diameter)",
             "text-valign": "center",
             "text-halign": "center"
         }
@@ -165,57 +170,20 @@ function renderEvidencePath(data) {
     {
         "selector": "edge",
         "style": {
-         //   "width": "data(weight)",
-            "width": 2, 
-         //   "curve-style": "haystack",
-         //   "haystack-radius": 0.5
-            "curve-style": "bezier",
-            "control-point-step-size": 5
-        },
-    }
-    ]
-
-    cy_evidence_path = cytoscape({
-        container: document.getElementById('cy'),
-        layout: {
-            //name: 'concentric', concentric: function (node) { return node.data('level'); },
-            name: 'concentric', concentric: function (node) { return node.data('level'); },
-            minNodeSpacing: 100,
-            levelWidth: function (nodes) { return 1; }
-        },
-        elements: data.elements,
-        style: s
-    })
-}
-
-
-function renderEvidenceBackbone(data) {
-
-    s = [{
-        "selector": "node[label]",
-        "style": {
-            "label": "data(label)",
-            "text-valign": "center",
-            "text-halign": "center"
-        }
-    },
-    {
-        "selector": "edge",
-        "style": {
-         //   "width": "data(weight)",
-            "width": 2, 
-         //   "curve-style": "haystack",
-         //   "haystack-radius": 0.5
+            //   "width": "data(weight)",
+            "width": 2,
+            //   "curve-style": "haystack",
+            //   "haystack-radius": 0.5
             "curve-style": "bezier",
             "control-point-step-size": 5
         },
     }]
 
-    nodes = [{data:{id:'gene', level:2}}];
-
+    nodes = [];
     for (drug of drug_list) {
-        nodes.push({
-            data:{id:drug.pubchem_cid, name:drug.name, atc:drug.l1_name, level:1}});
+        drug['level'] = 1;
+        drug['diameter'] = min_diameter + (drug.gene_scale * (max_diameter - min_diameter));
+        nodes.push({ data: drug });
     }
 
     cy_evidence_path = cytoscape({
@@ -225,16 +193,40 @@ function renderEvidenceBackbone(data) {
             minNodeSpacing: 100,
             levelWidth: function (nodes) { return 1; }
         },
-        elements: {nodes:nodes},
+        elements: { nodes: nodes },
         style: s
     })
 }
 
+function renderEvidenceEdges(gene) {
+
+    let formData = new FormData();
+    formData.append('gene', gene);
+    formData.append('cid_list', JSON.stringify(cid_list.map(Number)));
+
+    cy_evidence_path.$('node[level = 2 ]').remove()
+    //cy_evidence_path.edges().remove();
+
+    // add center node
+    cy_evidence_path.add({
+        group: 'nodes',
+        data: { id: gene, diameter: 100, name: gene, level: 2},
+        class: 'gene',
+        position: { x: 250, y: 250 }
+    })
+
+    fetch('edges.json', { body: formData, method: "post" })
+        .then(response => response.json())
+        .then(edges => cy_evidence_path.add({ edges: edges }));
+}
+
+
+
 function getEvidencePath(gene) {
 
     let formData = new FormData();
-   // formData.append('indication', indication);
-   // formData.append('atc', atc);
+    // formData.append('indication', indication);
+    // formData.append('atc', atc);
     formData.append('gene', gene);
     formData.append('cid_list', JSON.stringify(cid_list.map(Number)));
 
@@ -244,8 +236,10 @@ function getEvidencePath(gene) {
 }
 
 function reset() {
-    $('#output').fadeOut('slow');
+    
 
+    $('#output').fadeOut('slow', function() {$('#input').fadeIn('slow')});
+    
     // reset global variables
     indication = undefined;
     atc = undefined;
@@ -255,17 +249,16 @@ function reset() {
     gene_list = undefined;
     chosen_gene = undefined;
 
-    // cy_evidence_path;
     $('#run-button').removeClass('loader');
 
     try {
         gene_table.destroy();
+        cy_evidence_path.destroy();
     }
     finally {
         $('#output-text').empty();
         $('#gene-table').empty();
         $('#input-form')[0].reset();
 
-        $('#input').fadeIn('slow');
     }
 }

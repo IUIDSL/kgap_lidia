@@ -20,11 +20,13 @@ def Neo4jConnect(params=neo4j_params):
     """Connect to Neo4j db."""
     return neo4j.GraphDatabase.driver(**params).session()
 
+
 def DrugCentralConnect(params=drugcentral_params):
     """Connect to DrugCentral."""
     dbcon = psycopg2.connect(**params)
     dbcon.cursor_factory = psycopg2.extras.DictCursor
     return dbcon
+
 
 ### Flask stuff
 app = Flask(__name__)
@@ -42,7 +44,7 @@ def landing():
         FROM
             atc
         """
-    dbcon=DrugCentralConnect()
+    dbcon = DrugCentralConnect()
     atc_values = pd.read_sql(SQL, dbcon).l1_name.to_list()
     dbcon.close()
 
@@ -61,27 +63,28 @@ def get_indications():
 
     return json.dumps(indications)
 
+
 ### Returns drugs for a given indication and ATC filter
 @app.route("/drugs.json", methods=["POST"])
 def get_drugs():
-    """Query DrugCentral from indication for drugs."""
 
     indication_query = request.form["indication"]
     atc_query = request.form.get("atc", None)
 
-    app.logger.info(f"get_drugs(indication='{indication_query}', atc_query='{atc_query}')")
+    app.logger.info(
+        f"get_drugs(indication='{indication_query}', atc_query='{atc_query}')"
+    )
 
-    dbcon = DrugCentralConnect()
+    ### Query DrugCentral to get the drug list
+
     SQL = f"""\
     SELECT DISTINCT
         ids.identifier AS pubchem_cid,
         s.id,
         s.name,
         s.smiles,
-        atc.l1_code,
         atc.l1_name,
-        omop.concept_name omop_concept_name,
-        omop.snomed_full_name
+        omop.concept_name omop_concept_name
     FROM
         omop_relationship omop
     JOIN
@@ -98,6 +101,7 @@ def get_drugs():
         AND omop.concept_name ~* %(indication)s
     """
 
+    dbcon = DrugCentralConnect()
     if atc_query:
         SQL += f" AND atc.l1_name ~* %(atc)s "
         dcdrugs = pd.read_sql(
@@ -108,15 +112,42 @@ def get_drugs():
         dcdrugs = pd.read_sql(SQL, dbcon, params=dict(indication=indication_query))
 
     dbcon.close()
-    
+
+    disease_list = dcdrugs.omop_concept_name.drop_duplicates().to_list()
+
+    dcdrugs.drop(["omop_concept_name", "id"], axis="columns", inplace=True)
+    dcdrugs.drop_duplicates("pubchem_cid", inplace=True)
+    dcdrugs.pubchem_cid = dcdrugs.pubchem_cid.astype(int)
+
+    cid_list = dcdrugs.pubchem_cid.to_list()
+
+    CQL = """\
+        MATCH (d:Drug)-->(s:Signature)-->(g:Gene)
+        WHERE (d.pubchem_cid in $cid_list)
+        WITH  distinct d, g
+        RETURN d.pubchem_cid as pubchem_cid, count(g) as gene_count
+        """
+    session = Neo4jConnect()
+    gene_counts = pd.DataFrame(
+        session.run(CQL, parameters=dict(cid_list=cid_list)).data()
+    )
+    session.close()
+
+    df = (
+        dcdrugs.set_index("pubchem_cid")
+        .join(gene_counts.set_index("pubchem_cid"))
+        .reset_index()
+        .dropna()
+    )
+    df.rename(columns={"pubchem_cid": "id"}, inplace=True)
+    df.gene_count = df.gene_count.astype(int)
+    df["gene_scale"] = df.gene_count / df.gene_count.max()
+
+    drug_list = df.to_dict(orient="records")
+
     app.logger.debug(f"rows,cols: {dcdrugs.shape[0]},{dcdrugs.shape[1]}")
 
-    buffer = dict(
-        disease_list=list(dcdrugs["omop_concept_name"].unique()),
-        drug_list=dcdrugs[["pubchem_cid", "name", "l1_name"]]
-        .drop_duplicates("pubchem_cid")
-        .to_dict(orient="records"),
-    )
+    buffer = dict(disease_list=disease_list, drug_list=drug_list)
 
     return json.dumps(buffer)
 
@@ -126,7 +157,7 @@ def get_drugs():
 def get_genes():
 
     cid_list = json.loads(request.form["cid_list"])
-    
+
     app.logger.info(f"get_genes(cid_list='{cid_list}')")
 
     # score_attribute = "sum(s.degree)"
@@ -164,7 +195,7 @@ def get_evidence_path():
     gene = request.form["gene"]
 
     cid_list = json.loads(request.form["cid_list"])
-    
+
     app.logger.info(f"get_evidence_path(gene='{gene}', cid_list='{cid_list}')")
 
     CQL = f"MATCH p=(d:Drug)-[]-(s:Signature)-[sg]-(g:Gene {{name: $gene_name }}) WHERE d.pubchem_cid in $cid_list RETURN d,g"
@@ -200,6 +231,38 @@ def get_evidence_path():
     #    json.dump(response, f)
 
     return json.dumps(response)
+
+
+@app.route("/edges.json", methods=["POST"])
+def get_edges():
+
+    gene = request.form["gene"]
+
+    cid_list = json.loads(request.form["cid_list"])
+
+    app.logger.info(f"get_edges(gene='{gene}', cid_list='{cid_list}')")
+
+    CQL ="""
+    MATCH p=(d:Drug)-[]-(s:Signature)-[sg]-(g:Gene { name: $gene_name }) 
+    WHERE d.pubchem_cid in $cid_list 
+    RETURN d.pubchem_cid as id, count(g) as edge_count
+    """
+
+    session = Neo4jConnect()
+    data = session.run(CQL, parameters=dict(gene_name=gene, cid_list=cid_list)).data()
+    session.close()
+
+    edges = list()
+    
+    for item in data:
+        for i in range(item['edge_count']):
+            edges.append(dict(data=dict(target=gene, source=item['id'])))
+
+
+    # with open(f"tmp/{gene}_evidence_path.json", "w") as f:
+    #    json.dump(response, f)
+
+    return json.dumps(edges)
 
 
 ### Run the app (not for production)
