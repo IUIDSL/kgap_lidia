@@ -160,7 +160,7 @@ function renderEvidenceBackbone(min_diameter, max_diameter) {
         "selector": "node",
         "style": {
             "label": "data(name)",
-            "font-size": 12,
+            "font-size": 36,
             "width": "data(diameter)",
             "height": "data(diameter)",
             "text-valign": "center",
