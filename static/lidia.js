@@ -142,7 +142,7 @@ function processGenes(data) {
 
             var column = this.api().column(0)
 
-            $(column.header()).empty().append('<input type="text" class="u-full-width" placeholder="Gene symbol">')
+            $(column.header()).empty().append('<input type="text" class="u-full-width" placeholder="Gene">')
 
             $('input', column.header()).on('keyup change clear', function() {
                 gene_table.column(0).search(this.value).draw();
