@@ -4,76 +4,33 @@
     <meta charset="utf-8">
     <title>LIDIA</title>
 
+    <!-- CSS
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename = 'css/normalize.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename = 'css/skeleton.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename = 'css/custom.css') }}">
+
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.23/css/jquery.dataTables.css">
     <link rel="stylesheet" type="text/css" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+    <!-- FONT
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+
+    <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Raleway:400,300,600" type="text/css">
+
+    <!-- JS
+    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
 
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.js"> </script>
     <script type="text/javascript" src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 
     <script type="text/javascript" src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.js"></script>
 
-    <!-- FONT
-    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-    <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
-
-    <!-- CSS
-    –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-    <link rel="stylesheet" href="{{ url_for('static', filename = 'css/normalize.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename = 'css/skeleton.css') }}">
-
-    <!-- <script type = "text/javascript" src = "https://code.jquery.com/jquery-3.5.1.js"> </script> -->
-
-    <script type="text/javascript"
-        src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.17.1/cytoscape.umd.js"> </script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.17.1/cytoscape.umd.js"> </script>
 
     <script type="text/javascript" src="{{ url_for('static', filename = 'lidia.js') }}"></script>
 
-    <style>
-        .loader {
-            border: 16px solid #f3f3f3;
-            border-radius: 50%;
-            border-top: 16px solid #3498db;
-            width: 120px;
-            height: 120px;
-            -webkit-animation: spin 2s linear infinite;
-            /* Safari */
-            animation: spin 2s linear infinite;
-        }
-
-        /* Safari */
-        @-webkit-keyframes spin {
-            0% {
-                -webkit-transform: rotate(0deg);
-            }
-
-            100% {
-                -webkit-transform: rotate(360deg);
-            }
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .help {
-            display: none;
-        }
-
-        #indication-input:hover+.help {
-            display: block;
-            color: red;
-        }
-    </style>
 </head>
 
 <body>
@@ -89,11 +46,13 @@
                         by the Integrative Data Science Lab at Indiana University and Data2Discovery, Inc. </p>
                     <p id="about-text" class=hidden>
                         For additional information, see the online help,
-                        and refer to the 
-                        <a href=https://cheminfov.informatics.indiana.edu/projects/kgap />KGAP Home Page</a> and, 
-                        <a href="https://www.biorxiv.org/content/10.1101/2020.12.30.424881v2">our paper</a> (under review):
-                        "Knowledge graph analytics platform with LINCS and IDG for Parkinson’s disease target illumination",
-                        by Jeremy J Yang, Christopher R Gessner, Joel L Duerksen, Daniel Biber, Jessica L Binder, 
+                        and refer to the
+                        <a href=https://cheminfov.informatics.indiana.edu/projects/kgap />KGAP Home Page</a> and,
+                        <a href="https://www.biorxiv.org/content/10.1101/2020.12.30.424881v2">our paper</a> (under
+                        review):
+                        "Knowledge graph analytics platform with LINCS and IDG for Parkinson’s disease target
+                        illumination",
+                        by Jeremy J Yang, Christopher R Gessner, Joel L Duerksen, Daniel Biber, Jessica L Binder,
                         Murat Ozturk, Brian Foote, Robin McEntire, Kyle Stirling, Ying Ding, and David J Wild.
                     </p>
                 </div>
@@ -102,46 +61,67 @@
                     <a class="button" id="about-button" onclick="about()">About</a>
                 </p>
                 <p>
-                    <img height="50" style="vertical-align:middle;margin:0px 50px"
-                        src="{{ url_for('static', filename = 'images/iu-sig-formal.svg') }}">
-                    <img height="50" style="vertical-align:middle;margin:0px 50px"
-                        src="{{ url_for('static', filename = 'images/D2DLogo.png') }}">
+                    <img height="50" style="vertical-align:middle;margin:0px 50px" src="{{ url_for('static', filename = 'images/iu-sig-formal.svg') }}">
+                    <img height="50" style="vertical-align:middle;margin:0px 50px" src="{{ url_for('static', filename = 'images/D2DLogo.png') }}">
                 </p>
         </div>
 
         </section>
 
-        <div class="row hidden" id="input" style="margin-top:25%">
-            <div class="six columns offset-by-three">
 
-                <form id="input-form" onsubmit="run()" action="javascript:void(0)" class="helpable">
-                    <div> <label for="indication-input">Disease query</label>
-                        <input class="u-full-width" type="text" name="indication" id="indication-input" />
-                    </div>
-                    <div class=help> some help text</div>
-                    <div>
-                        <label for="atc-input">ATC classification specification (optional) </label>
-                        <select class="u-full-width" type="text" name="atc" id="atc-input">
-                            <option value=''> </option>
-                            {% for label in atc_values : %}
-                            <option value="{{ label }}"> {{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <input type="button" id="run-button" class="button-primary" value="run" onclick="run()">
-                    <input type="button" id="help-button" class="button" value="help" onclick="">
-                </form>
+        <div id="input" class="hidden" style="margin-top:10%">
+
+            <div class="row">
+                <div class="eight columns offset-by-two">
+                    <h3>Query </h3>
+                    <p> LIDIA takes an indication and an optional Anatomical and Therapeutic Chemical (ATC) Classification filter as
+                        inputs, and derives potential targets through a two step process.
+                        First, drugs for the queried indication(s) are retrieved
+                        from <a href=https://drugcentral.org>DrugCentral</a>.
+                        Potential targets are then retrieved from <a href=https://lincsproject.org />LINCS</a> data
+                        as those genes that were differentially expressed under treatment with these drugs,
+                        and ranked by a combination of z-score and associated expression signature count. </p>
+
+                </div>
+
+            </div>
+
+            <div class="row">
+                <div class="six columns offset-by-three">
+
+                    <form id="input-form" onsubmit="run()" action="javascript:void(0)" class="helpable">
+                        <div>
+                            <label class="tooltip" for="indication-input">Indication<span class="tooltiptext">
+                                    While auto-fill displays OMAP concept names available in DrugCentral,
+                                    the query is free form; to query multiple related concepts, use a common substring.
+                                    For example, the term “parkinson” matches 5 parkinson related concepts
+                                    while “parkinson’s disease” matches only one. </span></label>
+                            <input class="u-full-width tooltip" type="text" name="indication" id="indication-input" placeholder="OMOP concept name" />
+                        </div>
+                        <div>
+                            <label class="tooltip" for="atc-input">ATC classification filter <span class="tooltiptext">
+                                    Anatomical and Therapeutic Classifications are available to restrict the eligible
+                                    drugs for a given indication.
+                                    For example, if “nervous system” is selected with “Parkinson”, results will be
+                                    focused on the neurological etiology rather than symptoms.
+                                </span></label>
+                            <select class="u-full-width" type="text" name="atc" id="atc-input" placeholder="ATC class">
+                                <option value='' default selected> NONE </option>
+                                {% for label in atc_values : %}
+                                <option value="{{ label }}"> {{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <input type="button" id="run-button" class="button-primary" value="run" onclick="run()">
+                    </form>
+                </div>
             </div>
         </div>
+
         <div id="output" class="hidden" style="margin-top:10%">
             <div class=row>
-                <div class="eleven columns" id="output-text">
-
-                </div>
-                <div class="one column offset-by-eleven">
-
-                    <button id="reset-button" class="button-primary" onclick="reset()">Reset</button>
-                </div>
+                <h3> Results </h3>
+                <div id="output-text"></div>
 
             </div>
 
@@ -152,6 +132,14 @@
                 <div class="six columns">
                     <div id="cy" class="u-full-width" style="width:100%;height:500px"></div>
                 </div>
+            </div>
+            <div class="row">
+
+
+                <div class="one column offset-by-eleven">
+                    <button id="reset-button" class="button-primary" onclick="reset()">Reset</button>
+                </div>
+
             </div>
         </div>
     </div>
