@@ -55,19 +55,20 @@
      /* Position the tooltip text - see examples below! */
      position: absolute;
      z-index: 1;
-     left: 105%;
-     top: -300%;
+     left: 50%;
+     top: 100%;
+     margin-left: -150px;
  }
 
  .tooltip .tooltiptext::after {
      content: "";
      position: absolute;
-     top: 50%;
-     right: 100%;
+     bottom: 100%;
+     left: 50%;
      margin-left: -5px;
      border-width: 5px;
      border-style: solid;
-     border-color: transparent black transparent transparent;
+     border-color: transparent transparent black transparent;
  }
 
  /* Show the tooltip text when you mouse over the tooltip container */

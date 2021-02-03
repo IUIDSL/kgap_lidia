@@ -74,7 +74,8 @@
             <div class="row">
                 <div class="eight columns offset-by-two">
                     <h3>Query </h3>
-                    <p> LIDIA takes an indication and an optional Anatomical and Therapeutic Chemical (ATC) Classification filter as
+                    <p> LIDIA takes an indication and an optional Anatomical and Therapeutic Chemical (ATC)
+                        Classification filter as
                         inputs, and derives potential targets through a two step process.
                         First, drugs for the queried indication(s) are retrieved
                         from <a href=https://drugcentral.org>DrugCentral</a>.
@@ -120,8 +121,14 @@
 
         <div id="output" class="hidden" style="margin-top:10%">
             <div class=row>
-                <h3> Results </h3>
-                <div id="output-text"></div>
+                <div class="eleven columns">
+                    <h3> Results </h3>
+                    <div id="output-text"></div>
+                </div>
+                <div class="one column">
+
+                    <button id="reset-button" class="button-primary" onclick="reset()">Reset</button>
+                </div>
 
             </div>
 
@@ -129,16 +136,13 @@
                 <div class="five columns">
                     <table id="gene-table" style="width:100%"></table>
                 </div>
-                <div class="six columns">
-                    <div id="cy" class="u-full-width" style="width:100%;height:500px"></div>
+                <div class="seven columns">
+                    <div id="cy" class="u-full-width" style="width:100%;height:600px"></div>
                 </div>
             </div>
             <div class="row">
 
 
-                <div class="one column offset-by-eleven">
-                    <button id="reset-button" class="button-primary" onclick="reset()">Reset</button>
-                </div>
 
             </div>
         </div>

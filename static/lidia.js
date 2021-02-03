@@ -1,14 +1,11 @@
-// global variables
-
-// Input variables
+// Inputs
 var indication, atc;
 // DrugCentral response
-var disease_list, drug_list, cdi_list;
+var disease_list, drug_list, cid_list;
 // KG response
 var gene_list, gene_table;
 // Evidence path variables
 var chosen_gene, cy_evidence_path;
-
 
 $(document).ready(fetch('indications.json')
     .then(response => response.json())
@@ -17,7 +14,7 @@ $(document).ready(fetch('indications.json')
     })))
 
 function about() {
-    $('#about-button').fadeOut(100, function() {
+    $('#about-button').fadeOut(50, function() {
         $('#about-text').fadeIn('slow')
     })
 }
@@ -31,12 +28,38 @@ function start() {
 function output() {
     $('#input').fadeOut('slow', function() {
         $('#output').fadeIn('slow', function() {
-            renderEvidenceBackbone(50, 150);
+            renderEvidenceBackbone(20, 50);
             gene_table.draw();
         })
     });
 }
 
+function reset() {
+    $('#output').fadeOut('slow', function() {
+        $('#input').fadeIn('slow')
+    });
+
+    // reset global variables
+    indication = undefined;
+    atc = undefined;
+    disease_list = undefined;
+    drug_list = undefined;
+    cid_list = undefined;
+    gene_list = undefined;
+    chosen_gene = undefined;
+
+    $('#run-button').removeClass('loader');
+    $('#gene-table').off('click');
+
+    try {
+        gene_table.destroy();
+        cy_evidence_path.destroy();
+    } finally {
+        $('#output-text').empty();
+        $('#gene-table').empty();
+        $('#input-form')[0].reset();
+    }
+}
 
 function processDrugs(data) {
     // retrieved diseases
@@ -50,8 +73,6 @@ function processDrugs(data) {
     for (drug of drug_list) {
         cid_list.push(drug.id)
     }
-
-    return cid_list
 }
 
 function run() {
@@ -72,10 +93,9 @@ function run() {
             method: "post"
         })
         .then(response => response.json())
-        .then(data => processDrugs(data))
-        .then(cid_list => getGenes(cid_list))
+        .then(processDrugs)
+        .then(getGenes)
 
-    return false
 }
 
 function processGenes(data) {
@@ -114,7 +134,7 @@ function processGenes(data) {
         searching: true,
         paging: false,
         scrollCollapse: true,
-        scrollY: "400px",
+        scrollY: "500px",
         order: [
             [3, 'desc']
         ],
@@ -151,7 +171,6 @@ function processGenes(data) {
 
     });
 
-
     $('#gene-table').on('click', 'tr', function() {
         if ($(this).hasClass('selected')) {
             $(this).removeClass('selected');
@@ -164,9 +183,7 @@ function processGenes(data) {
             renderEvidenceEdges(chosen_gene);
         }
     });
-
 }
-
 
 function getGenes() {
     if (cid_list.length == 0) {
@@ -176,7 +193,6 @@ function getGenes() {
 
     let formData = new FormData();
     formData.append('cid_list', JSON.stringify(cid_list.map(Number)));
-
 
     fetch('genes.json', {
             body: formData,
@@ -188,13 +204,43 @@ function getGenes() {
         .then(output);
 }
 
+function summary_text() {
+
+    let summary = `<p> Query <strong>${indication}</strong> `
+
+    if (atc) {
+        summary += `with ATC filter <strong>${atc}</strong> `
+    }
+    summary += 'matched <span class="tooltip"> <strong>' +
+        disease_list.length +
+        '</strong> indications <span class="tooltiptext">';
+    for (disease of disease_list) {
+        summary += disease + '<br/>';
+    }
+    summary += '</span> </span> <br/>' +
+        'which yielded <span class="tooltip"><strong>' +
+        drug_list.length +
+        '</strong> drugs <span class="tooltiptext">';
+    for (drug of drug_list) {
+        summary += drug.name + '<br/>';
+    }
+    summary += '</span> </span> and <strong>' +
+        gene_list.length +
+        '</strong> potential targets. </p>'
+
+    $('#output-text').append(summary)
+}
+
+//// GRAPH FUNCTIONS ////
+
 function renderEvidenceBackbone(min_diameter, max_diameter) {
 
+    // style object could be moved outside.
     s = [{
-            "selector": "node",
-            "style": {
+            selector: "node",
+            style: {
                 "label": "data(name)",
-                "font-size": 36,
+                "font-size": 12,
                 "width": "data(diameter)",
                 "height": "data(diameter)",
                 "text-valign": "center",
@@ -202,9 +248,20 @@ function renderEvidenceBackbone(min_diameter, max_diameter) {
             }
         },
         {
+            selector: "node[level=1]",
+            style: {
+                "background-color": "#99ccff"
+            }
+        },
+        {
+            selector: "node[level=2]",
+            style: {
+                "background-color": "red"
+            }
+        },
+        {
             "selector": "edge",
             "style": {
-                //   "width": "data(weight)",
                 "width": 2,
                 //   "curve-style": "haystack",
                 //   "haystack-radius": 0.5
@@ -226,14 +283,10 @@ function renderEvidenceBackbone(min_diameter, max_diameter) {
     cy_evidence_path = cytoscape({
         container: document.getElementById('cy'),
         layout: {
-            name: 'concentric',
-            concentric: function(node) {
-                return node.data('level');
-            },
-            minNodeSpacing: 100,
-            levelWidth: function(nodes) {
-                return 1;
-            }
+            name: 'circle',
+            radius: 275,
+            fit: true,
+            //  nodeDimensionsIncludeLabels: true
         },
         elements: {
             nodes: nodes
@@ -251,19 +304,22 @@ function renderEvidenceEdges(gene) {
     cy_evidence_path.$('node[level = 2 ]').remove()
     //cy_evidence_path.edges().remove();
 
+    graph_size = cy_evidence_path.size()
+
     // add center node
     cy_evidence_path.add({
         group: 'nodes',
         data: {
             id: gene,
-            diameter: 100,
+            diameter: 50,
             name: gene,
             level: 2
         },
         class: 'gene',
+        // put it in the actual center
         position: {
-            x: 250,
-            y: 250
+            x: graph_size.width / 2,
+            y: graph_size.height / 2
         }
     })
 
@@ -275,58 +331,4 @@ function renderEvidenceEdges(gene) {
         .then(edges => cy_evidence_path.add({
             edges: edges
         }));
-}
-
-
-function summary_text() {
-
-    let summary = `<p> Query <strong>${indication}</strong> `
-
-    if (atc) {
-        summary += `with ATC filter <strong>${atc}</strong> `
-    }
-    summary += 'matched <span class="tooltip"> <strong>' +
-        disease_list.length +
-        '</strong> OMAP concepts <span class="tooltiptext">';
-    for (disease of disease_list) {
-        summary += disease + '<br/>';
-    }
-    summary += '</span> </span> <br/>' +
-        'which yielded <span class="tooltip"><strong>' +
-        drug_list.length +
-        '</strong> drugs <span class="tooltiptext">';
-    for (drug of drug_list) {
-        summary += drug.name + '<br/>';
-    }
-    summary += '</span> </span> and <strong>' +
-        gene_list.length +
-        '</strong> potential targets. </p>'
-
-    $('#output-text').append(summary)
-}
-
-function reset() {
-    $('#output').fadeOut('slow', function() {
-        $('#input').fadeIn('slow')
-    });
-
-    // reset global variables
-    indication = undefined;
-    atc = undefined;
-    disease_list = undefined;
-    drug_list = undefined;
-    cdi_list = undefined;
-    gene_list = undefined;
-    chosen_gene = undefined;
-
-    $('#run-button').removeClass('loader');
-
-    try {
-        gene_table.destroy();
-        cy_evidence_path.destroy();
-    } finally {
-        $('#output-text').empty();
-        $('#gene-table').empty();
-        $('#input-form')[0].reset();
-    }
 }
